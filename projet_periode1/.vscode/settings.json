@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "hash.h": "c",
+        "stdlib.h": "c",
+        "md5.h": "c"
+    }
+}
