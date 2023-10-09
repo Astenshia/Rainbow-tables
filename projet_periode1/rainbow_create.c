@@ -78,7 +78,7 @@ void create(FILE * in_file, FILE * out_file) {
 
 int main(int argc, char const *argv[])
 {
-    if (argc < R){
+    if (argc < R + 1){
         printf("Usage : <file1>.....<file R><file R+1 = passx,0>\n\n");
         exit(EXIT_FAILURE);
     }
