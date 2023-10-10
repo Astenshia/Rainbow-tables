@@ -8,9 +8,18 @@
 /// @param call reduction variation to prevent the same hash to get the same password
 /// @param word string that will contain the next password.
 void reduction(pwhash hash, int call, char *word) {
-    for(int i=0; i<M; i++) {
-        word[i] = (char) ((hash/(i+1) + call)%26) + 'a';
+    unsigned long long modulo = (hash + call) % ((unsigned long long) pow(26, M));
+    // if (call == L-1) printf("%ld\n", modulo);
+
+    for (int i = M-1; i >= 0 ; i--)
+    {
+        word[i] = modulo / (unsigned long long) pow(26, i) + 'a';
+        modulo = modulo % (unsigned long long) pow(26, i);
     }
+
+    // for(int i=0; i<M; i++) {
+    //     word[i] = (char) ((hash/(i+1) + call)%26) + 'a';
+    // }
     // printf("%lu -> %s ->", hash, word);
 }
 
