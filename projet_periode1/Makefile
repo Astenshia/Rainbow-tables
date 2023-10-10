@@ -22,7 +22,7 @@ hash_many.o : hash_many.c
 	gcc -c hash_many.c
 
 test : test.o
-	gcc -o test test.o -lssl -lcrypto
+	gcc -o test test.o -lssl -lcrypto -lm
 
 test.o : test.c
 	gcc -c test.c
