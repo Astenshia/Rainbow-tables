@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "hash.h"
+#include "reduce.h"
 
 #define HT_SIZE N*10
 #define NC 4 // number of characters to hash
@@ -80,21 +80,6 @@ int check_passL_in_hashtable(ht_cell_t **ht, char *passL) {
     return 0;
 }
 
-/// @brief Reduction function used to create a rainbow table.
-/// @param hash hash to be used to determine the next password
-/// @param call reduction variation to prevent the same hash to get the same password
-/// @param word string that will contain the next password.
-void reduction(pwhash hash, int call, char *word) {
-    unsigned long long modulo = (hash + call) % ((unsigned long long) pow(26, M));
-
-    // convert the number modulo into a string, and put it in the string word
-    for (int i = M-1; i >= 0 ; i--)
-    {
-        word[i] = modulo / (unsigned long long) pow(26, i) + 'a';
-        modulo = modulo % (unsigned long long) pow(26, i);
-    }
-}
-
 /// @brief Writes N pass0 passL tuples in a file, which corresponds to a N size rainbow table.
 /// @param in_file file containing input passwords. If NULL, randomly generates those passwords.
 /// @param out_file file where to write the tuples.
@@ -139,11 +124,11 @@ void create(FILE * in_file, FILE * out_file) {
         // first hash outside the main hash-reduction loop, to keep pass0's value in memory
         pwhash hashed = target_hash_function(pass0);
         // first reduction to have the same number of hash and reduction operations in the loop
-        reduction(hashed, 0, passL);
+        reduce(hashed, 0, passL);
         // hash-reduction loop, generating an L-chain
         for(int k=1; k<L; k++) {
             hashed = target_hash_function(passL);
-            reduction(hashed, k, passL);
+            reduce(hashed, k, passL);
         }
         
         if (check_passL_in_hashtable(hash_table, passL) == 1) {
