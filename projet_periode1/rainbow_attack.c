@@ -2,12 +2,10 @@
 #include <stdio.h>
 #include "reduce.h"
 
-#define HT_SIZE N*10
 #define NC 4 // number of characters to hash
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
-// global variable used to insert only unique passx0 values between the different files
-unsigned long long passx0_counter = 0;
+const unsigned long long HT_SIZE = N*10*R; // the size of the hashtable that will contain all passxL values
 
 typedef struct ht_cell_t
 {
@@ -80,7 +78,7 @@ int check_passL_in_hashtable(ht_cell_t **ht, char *passL) {
     return 0;
 }
 
-void load_rb_file_in_hashtable(FILE * input_file, ht_cell_t **ht)
+void load_rainbow_file_in_hashtable(FILE * input_file, ht_cell_t **ht)
 {
     char * line = NULL;
     size_t len = 0;
@@ -125,14 +123,17 @@ int main(int argc, char const *argv[])
         printf("Usage : <file1>.....<file R><file R+1 = attacked><file R+2 = results>\n\n");
         exit(EXIT_FAILURE);
     }
-    FILE * rainbow_file = fopen(argv[1], "r");
-    ht_cell_t *ht[HT_SIZE] = {NULL};
-    load_rb_file_in_hashtable(rainbow_file, ht);
-    fclose(rainbow_file);
+    // initialize a hashtable that can contain all passxL values
+    ht_cell_t **hash_table = (ht_cell_t **) malloc(sizeof(ht_cell_t *) * HT_SIZE);
 
-    print_ht(ht);
+    // load all passxL values contained in multiple files into the hashtable
+    for (int i = 0; i < R; i++)
+    {
+        FILE * rainbow_file = fopen(argv[i+1], "r");
+        load_rainbow_file_in_hashtable(rainbow_file, hash_table);
+        fclose(rainbow_file);
+    }
 
-    free_hashtable(ht);
-
-    return 0;
+    free_hashtable(hash_table);
+    exit(EXIT_SUCCESS);
 }
