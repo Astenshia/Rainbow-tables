@@ -2,37 +2,120 @@
 #include <stdio.h>
 #include "reduce.h"
 
-int passL_in_file(char * pass, FILE * r_file) {
-    printf("pif.1\n");
+#define HT_SIZE N*10
+#define NC 4 // number of characters to hash
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
-    int nc;
-    char * line, * passL;
-    size_t len = 0;
-    size_t read;
-    printf("pif.2\n");
-    if (r_file == NULL) printf("NULL\n");
-    // read lines in R file
-    while (read = getline(&line, &len, r_file)) {
-        // Count number of chars until whitespace
-        printf("pif.3\n");
-        nc = 1;
-        while(fgetc(r_file) != ' ') {
-            nc += 1;
-        }
-        printf("pif.4\n");
-        // Compare passL and pass
-        passL = line + nc;
-        if(strcmp(pass, passL) == 0) {
-            printf("FOUND !\n");
+// global variable used to insert only unique passx0 values between the different files
+unsigned long long passx0_counter = 0;
+
+typedef struct ht_cell_t
+{
+    char *passL;
+    struct ht_cell_t *next;
+} ht_cell_t;
+
+void free_cell(ht_cell_t *cell)
+{
+    // if the current cell has a next cell, free the next cell first
+    if (cell->next) free_cell(cell->next);
+
+    // then free the current cell
+    free(cell->passL);
+    free(cell);
+}
+
+void free_hashtable(ht_cell_t **ht)
+{
+    for (int i = 0; i < HT_SIZE; i++)
+    {
+        // free each non null cell recursively
+        if (ht[i]) free_cell(ht[i]);
+    }
+}
+
+unsigned long long hash_word(char *word)
+{
+    unsigned long long somme = 0;
+    for (int i=0; i < MIN(strlen(word), NC) ; i ++) {
+        somme += (word[i]-'a') * pow(26, i);
+    }
+    return somme%HT_SIZE;
+}
+
+/// @brief Checks if passL is already in the hashtable ht, adds passL to the hashtable if not already there
+/// @param ht the hashtable
+/// @param passL the password string
+/// @return 1 if passL is already in the hahstable, else 0
+int check_passL_in_hashtable(ht_cell_t **ht, char *passL) {
+    int hash_passL = hash_word(passL);
+    // if passL's hash has already a key-value in the hashtable, check if passL is in the linked list
+    if (ht[hash_passL]) {
+        ht_cell_t *current_cell = ht[hash_passL];
+        while (current_cell->next != NULL && strcmp(current_cell->passL, passL) != 0)
+        {
+            current_cell = current_cell->next;
+        } // current_cell->next == NULL || strcmp(current_cell->passL, passL) == 0
+
+        // if passL is found in the hashtable, return 1
+        if (strcmp(current_cell->passL, passL) == 0) {
             return 1;
         }
-        printf("pif.5\n");
+        
+        ht_cell_t *new_cell = (ht_cell_t *) malloc(sizeof(ht_cell_t));
+        new_cell->passL = strdup(passL);
+        new_cell->next = NULL;
+        current_cell->next = new_cell;
+
+        return 0;
+    } // ht[hash_passL] == NULL
+    
+    // if passL is not in the hashtable, add it
+    ht_cell_t *new_cell = (ht_cell_t *) malloc(sizeof(ht_cell_t));
+    new_cell->passL = strdup(passL);
+    new_cell->next = NULL;
+    ht[hash_passL] = new_cell;
+
+    // return 0 as passL was not already in the hashtable
+    return 0;
+}
+
+void load_rb_file_in_hashtable(FILE * input_file, ht_cell_t **ht)
+{
+    char * line = NULL;
+    size_t len = 0;
+    size_t read;
+
+    while ((read = getline(&line, &len, input_file)) != -1) {
+        char * passx0 = strtok(line, " \n");
+        char * passxL = strtok(NULL, " \n");
+
+        check_passL_in_hashtable(ht, passxL);
     }
 
-    printf("pif - fin\n");
-
     if (line) free(line);
-    return 0;
+}
+
+void print_cell(ht_cell_t *cell)
+{
+    printf(" -> %s\n", cell->passL);
+
+    // if there is a next cell then print it
+    if (cell->next) {
+        print_cell(cell->next);
+    }
+}
+
+void print_ht(ht_cell_t **ht)
+{
+    for (int i = 0; i < HT_SIZE; i++)
+    {
+        // if pointer at the current index in the hashtable is not NULL then print it
+        if (ht[i]) {
+            printf("[%d]\n", i);
+            print_cell(ht[i]);
+        }
+    }
 }
 
 int main(int argc, char const *argv[])
@@ -42,64 +125,14 @@ int main(int argc, char const *argv[])
         printf("Usage : <file1>.....<file R><file R+1 = attacked><file R+2 = results>\n\n");
         exit(EXIT_FAILURE);
     }
+    FILE * rainbow_file = fopen(argv[1], "r");
+    ht_cell_t *ht[HT_SIZE] = {NULL};
+    load_rb_file_in_hashtable(rainbow_file, ht);
+    fclose(rainbow_file);
 
-    FILE * input_file, * output_file, * r_file;
-    char * line;
-    char pass[M];
-    size_t len, read;
-    pwhash hash;
-    int call = 0, found = 0;
+    print_ht(ht);
 
-    input_file = fopen(argv[R+1], "r");
-    output_file = fopen(argv[R+2], "r");
-    printf("a\n");
-    while(read = getline(&line, &len, input_file)) {
-        printf("b\n");
-        hash = atoi(line);
-        reduce(hash, call, pass);
-        printf("c\n");
-        // Do L times hash and reduction
-        for(int l=0; l<L; l++) {
-            // Get new word from hash
-            // Test if word in files
+    free_hashtable(ht);
 
-            printf("d\n");
-            for(int r=1; r<R; r++) {
-                printf("d.1\n");
-                r_file = fopen(argv[r], "w");
-                printf("d.2\n");
-                found = passL_in_file(pass, r_file);
-                printf("d.3\n");
-                if(found) {
-                    break;
-                }
-                printf("d.4\n");
-                fclose(r_file);
-            }
-            printf("e\n");
-            if(found) {
-                printf("%lu hash gives %s pass\n", hash, pass);
-                fprintf(output_file, "%s\n", pass);
-                break;
-            }
-            else {
-                printf("%lu hash not in files, compute next pass\n", hash);
-            }
-            printf("f\n");
-            // Current pass not in R files, compute next pass
-            call += 1;
-            hash = target_hash_function(pass);
-            reduce(hash, call, pass);
-            printf("g\n");
-        }
-        printf("h\n");
-        // Pass not found after L reductions
-        if(!found) {
-            printf("%s hash does not give any correct pass after L reductions\n", line);
-            fprintf(output_file, "\n");
-        }
-    }
-    fclose(input_file);
-    fclose(output_file);
     return 0;
 }
