@@ -7,7 +7,8 @@
 #define NC 4 // number of characters to hash
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
-int nb_collision = 0;
+// global variable used to insert only unique passx0 values between the different files
+unsigned long long passx0_counter = 0;
 
 typedef struct ht_cell_t
 {
@@ -99,10 +100,9 @@ void create(FILE * in_file, FILE * out_file) {
         // if an input file is not provided, then randomly generates the input passwords "pass0"
         // else use the ones from the file
         if (in_file == NULL) {
-            // random generation of M-long password
-            for(int j = 0; j < M; j++) {
-                pass0[j] = (rand() % 26) + 'a';
-            }
+            // use the reduction function to provide a unique string of M-characters for every integer
+            reduce(passx0_counter, 0, pass0);
+            passx0_counter++;
         }
         else {
             size_t len = 0;
@@ -134,7 +134,6 @@ void create(FILE * in_file, FILE * out_file) {
         if (check_passL_in_hashtable(hash_table, passL) == 1) {
             free(pass0);
             free(passL);
-            nb_collision++;
             continue;
         }
         
