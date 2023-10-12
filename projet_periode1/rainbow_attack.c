@@ -7,12 +7,15 @@
 
 const unsigned long long HT_SIZE = N*10*R; // the size of the hashtable that will contain all passxL values
 
+/// @brief cell for linked lists, can be used in hashtables
 typedef struct ht_cell_t
 {
     char *pass0;
     struct ht_cell_t *next;
 } ht_cell_t;
 
+/// @brief free the provided cell and its next ones
+/// @param cell the cell to free
 void free_cell(ht_cell_t *cell)
 {
     // if the current cell has a next cell, free the next cell first
@@ -23,6 +26,8 @@ void free_cell(ht_cell_t *cell)
     free(cell);
 }
 
+/// @brief free all cells of the provided hashtable
+/// @param ht hashtable
 void free_hashtable(ht_cell_t **ht)
 {
     for (int i = 0; i < HT_SIZE; i++)
@@ -32,6 +37,9 @@ void free_hashtable(ht_cell_t **ht)
     }
 }
 
+/// @brief hash function used to hash strings
+/// @param word the string to hash
+/// @return the address associated with the provided string, between 0 and HT_SIZE
 unsigned long long hash_word(char *word)
 {
     unsigned long long somme = 0;
@@ -41,9 +49,13 @@ unsigned long long hash_word(char *word)
     return somme%HT_SIZE;
 }
 
+/// @brief Add a passx0 value in the provided hashtable, at the passxL address 
+/// @param ht the hashtable in which passx0 is inserted
+/// @param passx0 a M-long string
+/// @param passxL a M-long string
 void add_passx0_to_hashtable_at_address_passxL(ht_cell_t **ht, char *passx0, char *passxL) {
     int hash_passL = hash_word(passxL);
-    // if passL's hash has already a key-value in the hashtable, check if passL is in the linked list
+    // if passxL's hash has already a key-value in the hashtable, check if passx0 is in the linked list
     if (ht[hash_passL]) {
         ht_cell_t *current_cell = ht[hash_passL];
         while (current_cell->next != NULL && strcmp(current_cell->pass0, passx0) != 0)
@@ -51,11 +63,12 @@ void add_passx0_to_hashtable_at_address_passxL(ht_cell_t **ht, char *passx0, cha
             current_cell = current_cell->next;
         } // current_cell->next == NULL || strcmp(current_cell->pass0, passL) == 0
 
-        // if passL is found in the hashtable, return 1
+        // if pass0 is already in the hashtable, exit the function
         if (strcmp(current_cell->pass0, passx0) == 0) {
             return;
         }
         
+        // else add pass0 to the hashtable in the linked list and then exit
         ht_cell_t *new_cell = (ht_cell_t *) malloc(sizeof(ht_cell_t));
         new_cell->pass0 = strdup(passx0);
         new_cell->next = NULL;
@@ -64,71 +77,83 @@ void add_passx0_to_hashtable_at_address_passxL(ht_cell_t **ht, char *passx0, cha
         return;
     } // ht[hash_passL] == NULL
     
-    // if passL is not in the hashtable, add it
+    // if passx0 is not in the hashtable at the address passxL, add it
     ht_cell_t *new_cell = (ht_cell_t *) malloc(sizeof(ht_cell_t));
     new_cell->pass0 = strdup(passx0);
     new_cell->next = NULL;
     ht[hash_passL] = new_cell;
-
-    // return 0 as passL was not already in the hashtable
     return;
 }
 
+/// @brief load all (passxL, passx0) tuples in the provided hash table as (key, value)
+/// @param input_file the file to extract the tuples from.
+/// @param ht the hashtable in which the tuple is inserted
 void load_rainbow_file_in_hashtable(FILE * input_file, ht_cell_t **ht)
 {
     char * line = NULL;
     size_t len = 0;
     size_t read;
 
+    // read all lines of the file
     while ((read = getline(&line, &len, input_file)) != -1) {
+
+        // extract passx0 and passxL
         char * passx0 = strtok(line, " \n");
         char * passxL = strtok(NULL, " \n");
 
+        // add the tuple to the hash table
         add_passx0_to_hashtable_at_address_passxL(ht, passx0, passxL);
     }
 
     if (line) free(line);
 }
 
+/// @brief Attack a specific hash using a rainbow table
+/// @param hash the hash to attack
+/// @param ht the hashtable used as rainbow table
+/// @param res_file the file into which the cracked password is printed
+/// @return 1 if the hash was found in the hashtable, else O
 int attack_hash_with_rainbow_table(pwhash hash, ht_cell_t **ht, FILE *res_file)
 {
-    // printf("\n\n###################################################\n");
-    // printf("Hash Base = %llu\n", hash);
+    // copy the hash so the original hash can be used later to compare with the hash of the found password
     pwhash current_hash = hash;
     char * pwd = (char *) malloc(sizeof(char) * M);
+
+    // double loop to check the hash at every position in the line
+    // as the reduction function changes from one hash to another, we need to test every positions where the hash could have been
     for (int i = 0; i < L; i++)
     {
         pwhash current_hash = hash;
         reduce(current_hash, L-i-1, pwd);
-        //printf("%d | %llu -> %s", L-i-1, hash, pwd);
+
+        // re create the rainbow chain, starting from the hash's position, chain of length i-1
         for (int j = 1; j <= i; j++)
         {
             current_hash = target_hash_function(pwd);
             reduce(current_hash, L-i-1+j, pwd);
-            //printf(" -> %llu -> %s", current_hash, pwd);
         }
 
+        // for every chain created, if passxL is in the hashtable, find the associated passx0 value
         if (ht[hash_word(pwd)]) {
-            // printf("\n=======%llu\n", hash_word(pwd));
-            // printf(" PASSXL FOUND!!! passx0 = %s", pwd);
+
+            // for every passx0, find the password candidate
             ht_cell_t *current_cell = ht[hash_word(pwd)];
             while (current_cell != NULL)
             {
                 pwd = strdup(current_cell->pass0);
 
+                // find the candidate associated with the current passx0
                 for (int k = 0; k < L-i-1; k++)
                 {
                     current_hash = target_hash_function(pwd);
                     reduce(current_hash, k, pwd);
                 }
 
-                // printf("\nRecomputed base hash = %llu (with pwd = %s)\n", target_hash_function(pwd), pwd);
+                // if the candidate's hash if the same as the attacked hash, write it in the return file
                 if (target_hash_function(pwd) == hash) {
-                    // printf("Found: %s (hash = %llu)\n", pwd, target_hash_function(pwd));
-                    
-                    // write in file
                     fprintf(res_file, "%s\n", pwd);
 
+                    // return 1 as the password is found
                     return 1;
                 }
 
@@ -139,6 +164,10 @@ int attack_hash_with_rainbow_table(pwhash hash, ht_cell_t **ht, FILE *res_file)
     return 0;
 }
 
+/// @brief Attack all hashes contained in a file using a hashtable
+/// @param input_file file from which to read the hashes
+/// @param ht the hashtable used as rainbow table 
+/// @param path_to_res_file path ot the output file, where to write the found password
 void attack_file_with_rainbow_table(FILE *input_file, ht_cell_t **ht, const char *path_to_res_file)
 {
     char * hash = NULL;
@@ -147,10 +176,13 @@ void attack_file_with_rainbow_table(FILE *input_file, ht_cell_t **ht, const char
     
     FILE * res_file = fopen(path_to_res_file, "w");
 
+    // read all lines of the file to attack
     int res = -1;
     while ((read = getline(&hash, &len, input_file)) != -1) {
+        // read the hash
         hash = strtok(hash, " \n");
 
+        // attack the hash, and if the hash was not cracked, prints an empty line in the output file
         res = attack_hash_with_rainbow_table(strtoull(hash, NULL, 10), ht, res_file);
         if (res == 0) {
             fprintf(res_file, "\n");
@@ -161,6 +193,8 @@ void attack_file_with_rainbow_table(FILE *input_file, ht_cell_t **ht, const char
     if (hash) free(hash);
 }
 
+/// @brief Utils function used to print the provided cell.
+/// @param cell the cell to print
 void print_cell(ht_cell_t *cell)
 {
     printf(" -> %s\n", cell->pass0);
@@ -171,6 +205,8 @@ void print_cell(ht_cell_t *cell)
     }
 }
 
+/// @brief Utils function used to print all cells of a hashtable
+/// @param ht the hashtable to print
 void print_ht(ht_cell_t **ht)
 {
     for (int i = 0; i < HT_SIZE; i++)
@@ -201,6 +237,7 @@ int main(int argc, char const *argv[])
         fclose(rainbow_file);
     }
 
+    // attack the file provided as R+1 argument
     FILE * attacked_file = fopen(argv[R + 1], "r");
     attack_file_with_rainbow_table(attacked_file, hash_table, argv[R + 2]);
     fclose(attacked_file);
