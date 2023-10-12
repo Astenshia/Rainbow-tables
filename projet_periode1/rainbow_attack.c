@@ -2,14 +2,14 @@
 #include <stdio.h>
 #include "reduce.h"
 
-#define NC 4 // number of characters to hash
+#define NC M // number of characters to hash
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
 const unsigned long long HT_SIZE = N*10*R; // the size of the hashtable that will contain all passxL values
 
 typedef struct ht_cell_t
 {
-    char *passL;
+    char *pass0;
     struct ht_cell_t *next;
 } ht_cell_t;
 
@@ -19,7 +19,7 @@ void free_cell(ht_cell_t *cell)
     if (cell->next) free_cell(cell->next);
 
     // then free the current cell
-    free(cell->passL);
+    free(cell->pass0);
     free(cell);
 }
 
@@ -41,41 +41,37 @@ unsigned long long hash_word(char *word)
     return somme%HT_SIZE;
 }
 
-/// @brief Checks if passL is already in the hashtable ht, adds passL to the hashtable if not already there
-/// @param ht the hashtable
-/// @param passL the password string
-/// @return 1 if passL is already in the hahstable, else 0
-int check_passL_in_hashtable(ht_cell_t **ht, char *passL) {
-    int hash_passL = hash_word(passL);
+void add_passx0_to_hashtable_at_address_passxL(ht_cell_t **ht, char *passx0, char *passxL) {
+    int hash_passL = hash_word(passxL);
     // if passL's hash has already a key-value in the hashtable, check if passL is in the linked list
     if (ht[hash_passL]) {
         ht_cell_t *current_cell = ht[hash_passL];
-        while (current_cell->next != NULL && strcmp(current_cell->passL, passL) != 0)
+        while (current_cell->next != NULL && strcmp(current_cell->pass0, passx0) != 0)
         {
             current_cell = current_cell->next;
-        } // current_cell->next == NULL || strcmp(current_cell->passL, passL) == 0
+        } // current_cell->next == NULL || strcmp(current_cell->pass0, passL) == 0
 
         // if passL is found in the hashtable, return 1
-        if (strcmp(current_cell->passL, passL) == 0) {
-            return 1;
+        if (strcmp(current_cell->pass0, passx0) == 0) {
+            return;
         }
         
         ht_cell_t *new_cell = (ht_cell_t *) malloc(sizeof(ht_cell_t));
-        new_cell->passL = strdup(passL);
+        new_cell->pass0 = strdup(passx0);
         new_cell->next = NULL;
         current_cell->next = new_cell;
 
-        return 0;
+        return;
     } // ht[hash_passL] == NULL
     
     // if passL is not in the hashtable, add it
     ht_cell_t *new_cell = (ht_cell_t *) malloc(sizeof(ht_cell_t));
-    new_cell->passL = strdup(passL);
+    new_cell->pass0 = strdup(passx0);
     new_cell->next = NULL;
     ht[hash_passL] = new_cell;
 
     // return 0 as passL was not already in the hashtable
-    return 0;
+    return;
 }
 
 void load_rainbow_file_in_hashtable(FILE * input_file, ht_cell_t **ht)
@@ -88,15 +84,71 @@ void load_rainbow_file_in_hashtable(FILE * input_file, ht_cell_t **ht)
         char * passx0 = strtok(line, " \n");
         char * passxL = strtok(NULL, " \n");
 
-        check_passL_in_hashtable(ht, passxL);
+        add_passx0_to_hashtable_at_address_passxL(ht, passx0, passxL);
     }
 
     if (line) free(line);
 }
 
+void attack_hash_with_rainbow_table(pwhash hash, ht_cell_t **ht)
+{
+    // printf("\n\n###################################################\n");
+    // printf("Hash Base = %llu\n", hash);
+    pwhash current_hash = hash;
+    char * pwd = (char *) malloc(sizeof(char) * M);
+    for (int i = 0; i < L; i++)
+    {
+        pwhash current_hash = hash;
+        reduce(current_hash, L-i-1, pwd);
+        //printf("%d | %llu -> %s", L-i-1, hash, pwd);
+        for (int j = 1; j <= i; j++)
+        {
+            current_hash = target_hash_function(pwd);
+            reduce(current_hash, L-i-1+j, pwd);
+            //printf(" -> %llu -> %s", current_hash, pwd);
+        }
+
+
+        if (ht[hash_word(pwd)]) {
+            // printf("\n=======%llu\n", hash_word(pwd));
+            // printf(" PASSXL FOUND!!! passx0 = %s", pwd);
+            pwd = strdup(ht[hash_word(pwd)]->pass0);
+
+            for (int k = 0; k < L-i-1; k++)
+            {
+                current_hash = target_hash_function(pwd);
+                reduce(current_hash, k, pwd);
+            }
+
+            // printf("\nRecomputed base hash = %llu (with pwd = %s)\n", target_hash_function(pwd), pwd);
+            if (target_hash_function(pwd) == hash) {
+                printf("Found: %s (hash = %llu)\n", pwd, target_hash_function(pwd));
+                FILE * res_file = fopen("res/resattack.txt", "a");
+                fprintf(res_file, "%s\n", pwd);
+                fclose(res_file);
+            }
+        }
+    }    
+}
+
+void attack_file_with_rainbow_table(FILE *input_file, ht_cell_t **ht)
+{
+    char * hash = NULL;
+    size_t len = 0;
+    size_t read;
+
+    while ((read = getline(&hash, &len, input_file)) != -1) {
+        hash = strtok(hash, " \n");
+
+        attack_hash_with_rainbow_table(strtoull(hash, NULL, 10), ht);
+    }
+
+    if (hash) free(hash);
+}
+
 void print_cell(ht_cell_t *cell)
 {
-    printf(" -> %s\n", cell->passL);
+    printf(" -> %s\n", cell->pass0);
 
     // if there is a next cell then print it
     if (cell->next) {
@@ -119,7 +171,7 @@ void print_ht(ht_cell_t **ht)
 int main(int argc, char const *argv[])
 {
     // checking the number of arguments
-    if (argc < R + 3){
+    if (argc < R + 2){
         printf("Usage : <file1>.....<file R><file R+1 = attacked><file R+2 = results>\n\n");
         exit(EXIT_FAILURE);
     }
@@ -133,6 +185,10 @@ int main(int argc, char const *argv[])
         load_rainbow_file_in_hashtable(rainbow_file, hash_table);
         fclose(rainbow_file);
     }
+
+    FILE * attacked_file = fopen(argv[R + 1], "r");
+    attack_file_with_rainbow_table(attacked_file, hash_table);
+    fclose(attacked_file);
 
     free_hashtable(hash_table);
     exit(EXIT_SUCCESS);
