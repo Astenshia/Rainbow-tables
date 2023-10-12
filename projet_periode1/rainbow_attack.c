@@ -90,7 +90,7 @@ void load_rainbow_file_in_hashtable(FILE * input_file, ht_cell_t **ht)
     if (line) free(line);
 }
 
-void attack_hash_with_rainbow_table(pwhash hash, ht_cell_t **ht)
+int attack_hash_with_rainbow_table(pwhash hash, ht_cell_t **ht, FILE *res_file)
 {
     // printf("\n\n###################################################\n");
     // printf("Hash Base = %llu\n", hash);
@@ -108,40 +108,55 @@ void attack_hash_with_rainbow_table(pwhash hash, ht_cell_t **ht)
             //printf(" -> %llu -> %s", current_hash, pwd);
         }
 
-
         if (ht[hash_word(pwd)]) {
             // printf("\n=======%llu\n", hash_word(pwd));
             // printf(" PASSXL FOUND!!! passx0 = %s", pwd);
-            pwd = strdup(ht[hash_word(pwd)]->pass0);
-
-            for (int k = 0; k < L-i-1; k++)
+            ht_cell_t *current_cell = ht[hash_word(pwd)];
+            while (current_cell != NULL)
             {
-                current_hash = target_hash_function(pwd);
-                reduce(current_hash, k, pwd);
-            }
+                pwd = strdup(current_cell->pass0);
 
-            // printf("\nRecomputed base hash = %llu (with pwd = %s)\n", target_hash_function(pwd), pwd);
-            if (target_hash_function(pwd) == hash) {
-                printf("Found: %s (hash = %llu)\n", pwd, target_hash_function(pwd));
-                FILE * res_file = fopen("res/resattack.txt", "a");
-                fprintf(res_file, "%s\n", pwd);
-                fclose(res_file);
-            }
+                for (int k = 0; k < L-i-1; k++)
+                {
+                    current_hash = target_hash_function(pwd);
+                    reduce(current_hash, k, pwd);
+                }
+
+                // printf("\nRecomputed base hash = %llu (with pwd = %s)\n", target_hash_function(pwd), pwd);
+                if (target_hash_function(pwd) == hash) {
+                    // printf("Found: %s (hash = %llu)\n", pwd, target_hash_function(pwd));
+                    
+                    // write in file
+                    fprintf(res_file, "%s\n", pwd);
+
+                    return 1;
+                }
+
+                current_cell = current_cell->next;
+            } // current_cell == NULL
         }
-    }    
+    }
+    return 0;
 }
 
-void attack_file_with_rainbow_table(FILE *input_file, ht_cell_t **ht)
+void attack_file_with_rainbow_table(FILE *input_file, ht_cell_t **ht, const char *path_to_res_file)
 {
     char * hash = NULL;
     size_t len = 0;
     size_t read;
+    
+    FILE * res_file = fopen(path_to_res_file, "w");
 
+    int res = -1;
     while ((read = getline(&hash, &len, input_file)) != -1) {
         hash = strtok(hash, " \n");
 
-        attack_hash_with_rainbow_table(strtoull(hash, NULL, 10), ht);
+        res = attack_hash_with_rainbow_table(strtoull(hash, NULL, 10), ht, res_file);
+        if (res == 0) {
+            fprintf(res_file, "\n");
+        }
     }
+    fclose(res_file);
 
     if (hash) free(hash);
 }
@@ -187,7 +202,7 @@ int main(int argc, char const *argv[])
     }
 
     FILE * attacked_file = fopen(argv[R + 1], "r");
-    attack_file_with_rainbow_table(attacked_file, hash_table);
+    attack_file_with_rainbow_table(attacked_file, hash_table, argv[R + 2]);
     fclose(attacked_file);
 
     free_hashtable(hash_table);
