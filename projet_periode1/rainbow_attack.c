@@ -1,9 +1,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "reduce.h"
+#include <pthread.h>
 
 #define NC M // number of characters to hash
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
+#define NB_THREADS 4 // number of threads created by this program
+
+#define BUF_SIZE 65536 // buffer size to read lines
 
 const unsigned long long HT_SIZE = N*10*R; // the size of the hashtable that will contain all passxL values
 
@@ -219,6 +223,79 @@ void print_ht(ht_cell_t **ht)
     }
 }
 
+void * say_something(void * args) {
+    char * str = (char *) args;
+    printf("debut\n");
+    printf("THREAD says : %s\n", str);
+}
+
+/// @brief Function used to quickly count the number of lines in a file. Found here: https://stackoverflow.com/questions/12733105/c-function-that-counts-lines-in-file, by https://stackoverflow.com/users/3722288/mike-siomkin.
+/// @param file 
+/// @return the number of lines
+int count_lines(FILE* file)
+{
+    char buf[BUF_SIZE];
+    int counter = 0;
+    for(;;)
+    {
+        size_t res = fread(buf, 1, BUF_SIZE, file);
+        if (ferror(file))
+            return -1;
+
+        int i;
+        for(i = 0; i < res; i++)
+            if (buf[i] == '\n')
+                counter++;
+
+        if (feof(file))
+            break;
+    }
+
+    return counter;
+}
+
+void split_attacked_file(const char * attacked_file_path)
+{
+    FILE * attacked_file = fopen(attacked_file_path, "r");
+    if (attacked_file == NULL) {
+        printf("Attacked file could not be open.\n");
+        exit(EXIT_FAILURE);
+    }
+    int nb_lines = count_lines(attacked_file);
+    fclose(attacked_file);
+
+    char * line;
+    size_t read;
+    size_t len = 0;
+
+    // re open the file to get a pointer at the beginning again
+    attacked_file = fopen(attacked_file_path, "r");
+    FILE *tmp_file;
+    for (int i = 0; i < NB_THREADS; i++)
+    {
+        int length = snprintf(NULL, 0, "%d", i);
+        char* number = malloc(sizeof(char) * (length + 1));
+        snprintf(number, length + 1, "%d", i);
+
+        tmp_file = fopen(number, "w");
+
+
+        int line_counter = 0;
+        while ((read = getline(&line, &len, attacked_file)) != -1)
+        {
+            line = strtok(line, "\n");
+            fprintf(tmp_file, "%s\n", line);
+            line_counter++;
+            if (line_counter >= nb_lines/NB_THREADS + 1) break;
+        }
+        
+        if (line) free(line);
+        
+        fclose(tmp_file);
+        free(number);
+    }
+}
+
 int main(int argc, char const *argv[])
 {
     // checking the number of arguments
@@ -226,6 +303,25 @@ int main(int argc, char const *argv[])
         printf("Usage : <file1>.....<file R><file R+1 = attacked><file R+2 = results>\n\n");
         exit(EXIT_FAILURE);
     }
+
+   
+    split_attacked_file(argv[R + 1]);
+
+    pthread_t my_threads[8];
+
+    for (int i = 0; i < 8; i++)
+    {
+        char * arg = "Bonjour - ";
+        pthread_create(&my_threads[i], NULL, say_something, arg);
+    }
+
+    for (int i = 0; i < 8; i++)
+    {
+        pthread_join(my_threads[i], NULL);
+    }
+
+    exit(0);
+
     // initialize a hashtable that can contain all passxL values
     ht_cell_t **hash_table = (ht_cell_t **) malloc(sizeof(ht_cell_t *) * HT_SIZE);
 
