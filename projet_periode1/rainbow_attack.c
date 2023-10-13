@@ -5,7 +5,7 @@
 
 #define NC M // number of characters to hash
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
-#define NB_THREADS 7 // number of threads created by this program
+#define NB_THREADS 4 // number of threads created by this program
 
 #define BUF_SIZE 65536 // buffer size to read lines
 
@@ -285,10 +285,10 @@ void split_attacked_file(const char * attacked_file_path)
         while ((read = getline(&line, &len, attacked_file)) != -1)
         {
             // remove the line return character
-            line = strtok(line, "\n");
+            // line = strtok(line, "\n");
 
             // print in file
-            fprintf(tmp_file, "%s\n", line);
+            fprintf(tmp_file, "%s", line);
 
             // line counter increment
             line_counter++;
@@ -299,6 +299,39 @@ void split_attacked_file(const char * attacked_file_path)
         fclose(tmp_file);
         free(number);
     }
+}
+
+void concatenate_split_output_files(const char *output_file_path)
+{
+    for (int i = 0; i < NB_THREADS; i++)
+        {
+            int length = snprintf(NULL, 0, "%d", i);
+            char* number = malloc(sizeof(char) * (length + 1));
+            snprintf(number, length + 1, "%d", i);
+
+            // create a file path of form "tmp/res<i>.txt" with <i> being the value of variable i
+            char res_split_file_path[12] = "tmp/res";
+            strcat(res_split_file_path, number);
+            strcat(res_split_file_path, ".txt");
+            
+            char * line;
+            size_t len = 0;
+            size_t read;
+
+            FILE *res_split_file = fopen(strdup(res_split_file_path), "r");
+            FILE *output_file = fopen(output_file_path, "a");
+
+            // read all lines of the split res file
+            while ((read = getline(&line, &len, res_split_file)) != -1)
+            {
+                fprintf(output_file, "%s", line);
+            }            
+
+            fclose(output_file);
+            fclose(res_split_file);
+            if (line) free(line);
+            free(number);
+        }
 }
 
 typedef struct attacked_split_file {
@@ -382,6 +415,13 @@ int main(int argc, char const *argv[])
         exit(EXIT_FAILURE);
     }
 
+    // check if the output file can be opened or created, and resets it with the write operation
+    FILE *res_file = fopen(argv[R + 2], "w");
+    if (res_file == NULL) {
+        printf("Output file could not be open/created.\n");
+    }
+    fclose(res_file);
+
     // initialize a hashtable that can contain all passxL values
     ht_cell_t **hash_table = (ht_cell_t **) malloc(sizeof(ht_cell_t *) * HT_SIZE);
     // load all passxL values contained in multiple files into the hashtable
@@ -398,6 +438,9 @@ int main(int argc, char const *argv[])
 
         // start the threads, which will access the same hash_table
         create_threads(hash_table);
+
+        // concatenate the result files into the provided output file
+        concatenate_split_output_files(argv[R + 2]);
 
     } else {
         // attack the file provided as R+1 argument
