@@ -29,6 +29,8 @@ Et 26⁷ < 32⁷
 Donc il est raisonnable de s'arrêter à M = 7
 ``` 
 4. 
+Résumé de l'énoncé :  
+![résumé](1.jpg)  
 La fonction de réduction ne varie pas (encore).
 
 D'après la définition "le candidat est un pass dont le hash est égal au hash attaqué" et non "le candidat est le mot de passe recherché" alors un candidat est UN antécédent du hash attaqué.
@@ -37,7 +39,7 @@ Dans le cas où l'on considère que "le candidat est le mot de passe recherché"
 
 Dans tous les cas c'est UN antécédent du hash recherché.
 
-[INSERER SCHEMA ICI]
+![schema](2.jpg)
 
 5. 
 On peut utiliser une table hachage (complexité en O(1+n/M) pour la recherche d'un élément): association de clés/valeurs (passx,L/passx,0). On génère passx,0, on calcule passx,L à partir de passx,0 et on stocke le couple (passx,L, passx,0) dans la table.
@@ -99,4 +101,21 @@ Environ 86% de hash ont donné un antécédent.
 Nous avons utilisé une unique hashtable pour stocker les hash à attaquer, et avons géré les collisions avec des listes chainées.  
 Afin de réduire le temps d'exécution de notre programme, nous l'avons réparti en utilisant des threads. 
 
-13.  [TO DO]
+13.  
+Techniques implémentées de nos jours pour se prémunir des attaques par Rainbow Table : 
+
+- Salage :  Ajout dans chaque pass (durant le processus de hachage) d'une chaîne unique générée aléatoirement.  
+Cela oblige qui veut craquer les hash de mots de passe à le faire un mot de passe à la fois en prenant en compte le fait qu'il y a eu un ajout avant hachage : le temps de crackage augmente proportionellement au nombre de mots de passe.  
+
+- Poivrage :  Peut être utilisé en complément du salage. Technique qui consiste à encrypter avec une clé symétrique les hash de mot de passe avant de les stocker dans la table. Le “poivre” (la clé) est partagée entre les hash.  
+La clé n’est pas stockée dans la table.  
+
+- Work factor :  Technique qui consiste à rendre le calcul du hash très long et très coûteux en opérations pour rendre l’attaque de mot de passe plus longue.  
+
+- Meilleurs algorithmes de hachage:
+Plus coûteux en temps que MD5, par exemple Aragon2id qui prend en paramètres la taille minimum de la mémoire(m), le nombre minimum d’opérations(t), et le degré de parallélisme(p). Plusieurs configurations sont possibles mais les suivantes sont recommandées:   
+    m=12288 (12 MiB), t=3, p=1  
+    m=9216 (9 MiB), t=4, p=1  
+    m=7168 (7 MiB), t=5, p=1  
+
+D’autre fonctions à plusieurs paramètres sont utilisées comme scrypt et bcrypt utilisant directement la taille de la mémoire. 
