@@ -5,7 +5,7 @@
 
 #define NC M // number of characters to hash
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
-#define NB_THREADS 4 // number of threads created by this program
+#define NB_THREADS 5 // number of threads created by this program
 
 #define BUF_SIZE 65536 // buffer size to read lines
 
@@ -223,12 +223,6 @@ void print_ht(ht_cell_t **ht)
     }
 }
 
-void * say_something(void * args) {
-    char * str = (char *) args;
-    printf("debut\n");
-    printf("THREAD says : %s\n", str);
-}
-
 /// @brief Function used to quickly count the number of lines in a file. Found here: https://stackoverflow.com/questions/12733105/c-function-that-counts-lines-in-file, by https://stackoverflow.com/users/3722288/mike-siomkin.
 /// @param file 
 /// @return the number of lines
@@ -273,26 +267,110 @@ void split_attacked_file(const char * attacked_file_path)
     FILE *tmp_file;
     for (int i = 0; i < NB_THREADS; i++)
     {
+        // get the number as a string
         int length = snprintf(NULL, 0, "%d", i);
-        char* number = malloc(sizeof(char) * (length + 1));
+        char *number = malloc(sizeof(char) * (length + 1));
         snprintf(number, length + 1, "%d", i);
+        
+        // create a file path of form "tmp/plit<i>.txt" with <i> being the value of variable i
+        char file_path[14] = "tmp/split";
+        strcat(file_path, number);
+        strcat(file_path, ".txt");  
 
-        tmp_file = fopen(number, "w");
+        // open the corresponding file in write mode
+        tmp_file = fopen(file_path, "w");
 
-
+        // copy lines from the original attacked file
         int line_counter = 0;
         while ((read = getline(&line, &len, attacked_file)) != -1)
         {
+            // remove the line return character
             line = strtok(line, "\n");
+
+            // print in file
             fprintf(tmp_file, "%s\n", line);
+
+            // line counter increment
             line_counter++;
             if (line_counter >= nb_lines/NB_THREADS + 1) break;
         }
-        
         if (line) free(line);
         
         fclose(tmp_file);
         free(number);
+    }
+}
+
+typedef struct attacked_split_file {
+    const char *input_file_path;
+    const char *output_file_path;
+    ht_cell_t **hash_table;
+} cpargs;
+
+void * thread_attack_file_with_rainbow_table(void * args) {
+    cpargs * arg = (cpargs *) args;
+    const char *input_file_path = strdup(arg->input_file_path);
+    const char *output_file_path = strdup(arg->output_file_path);
+    ht_cell_t **ht = arg->hash_table;
+
+    char * hash = NULL;
+    size_t len = 0;
+    size_t read;
+    
+    FILE * input_file = fopen(input_file_path, "r");
+    FILE * res_file = fopen(output_file_path, "w");
+
+    // read all lines of the file to attack
+    int res = -1;
+    while ((read = getline(&hash, &len, input_file)) != -1) {
+        // read the hash
+        hash = strtok(hash, " \n");
+
+        // attack the hash, and if the hash was not cracked, prints an empty line in the output file
+        res = attack_hash_with_rainbow_table(strtoull(hash, NULL, 10), ht, res_file);
+        if (res == 0) {
+            fprintf(res_file, "\n");
+        }
+    }
+    fclose(res_file);
+    fclose(input_file);
+
+    if (hash) free(hash);
+}
+
+void create_threads(ht_cell_t **hash_table)
+{
+    // create a thread on each file
+    pthread_t my_threads[NB_THREADS];
+    cpargs my_args[NB_THREADS];
+    for (int i = 0; i < NB_THREADS; i++)
+    {
+        my_args[i].hash_table = hash_table;
+
+        int length = snprintf(NULL, 0, "%d", i);
+        char* number = malloc(sizeof(char) * (length + 1));
+        snprintf(number, length + 1, "%d", i);
+
+        // create a file path of form "tmp/plit<i>.txt" with <i> being the value of variable i
+        char input_file_path[14] = "tmp/split";
+        strcat(input_file_path, number);
+        strcat(input_file_path, ".txt");
+        my_args[i].input_file_path = strdup(input_file_path);
+
+        // create a file path of form "tmp/res<i>.txt" with <i> being the value of variable i
+        char output_file_path[12] = "tmp/res";
+        strcat(output_file_path, number);
+        strcat(output_file_path, ".txt");
+        my_args[i].output_file_path = strdup(output_file_path);
+
+        pthread_create(&my_threads[i], NULL, thread_attack_file_with_rainbow_table, (void *) &(my_args[i]));
+        
+        free(number);
+    }
+
+    for (int i = 0; i < NB_THREADS; i++)
+    {
+        pthread_join(my_threads[i], NULL);
     }
 }
 
@@ -304,27 +382,8 @@ int main(int argc, char const *argv[])
         exit(EXIT_FAILURE);
     }
 
-   
-    split_attacked_file(argv[R + 1]);
-
-    pthread_t my_threads[8];
-
-    for (int i = 0; i < 8; i++)
-    {
-        char * arg = "Bonjour - ";
-        pthread_create(&my_threads[i], NULL, say_something, arg);
-    }
-
-    for (int i = 0; i < 8; i++)
-    {
-        pthread_join(my_threads[i], NULL);
-    }
-
-    exit(0);
-
     // initialize a hashtable that can contain all passxL values
     ht_cell_t **hash_table = (ht_cell_t **) malloc(sizeof(ht_cell_t *) * HT_SIZE);
-
     // load all passxL values contained in multiple files into the hashtable
     for (int i = 0; i < R; i++)
     {
@@ -332,11 +391,20 @@ int main(int argc, char const *argv[])
         load_rainbow_file_in_hashtable(rainbow_file, hash_table);
         fclose(rainbow_file);
     }
+    
+    if (NB_THREADS > 1) {
+        // split the attacked file into NB_THREADS files
+        split_attacked_file(argv[R + 1]);
 
-    // attack the file provided as R+1 argument
-    FILE * attacked_file = fopen(argv[R + 1], "r");
-    attack_file_with_rainbow_table(attacked_file, hash_table, argv[R + 2]);
-    fclose(attacked_file);
+        // start the threads, which will access the same hash_table
+        create_threads(hash_table);
+
+    } else {
+        // attack the file provided as R+1 argument
+        FILE * attacked_file = fopen(argv[R + 1], "r");
+        attack_file_with_rainbow_table(attacked_file, hash_table, argv[R + 2]);
+        fclose(attacked_file);
+    } 
 
     free_hashtable(hash_table);
     exit(EXIT_SUCCESS);
