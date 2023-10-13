@@ -99,7 +99,7 @@ Donc pour 10 000 valeurs à stocker, une table de 14 286  cases serait satisfais
 
 Environ 86% de hash ont donné un antécédent.  
 Nous avons utilisé une unique hashtable pour stocker les hash à attaquer, et avons géré les collisions avec des listes chainées.  
-Afin de réduire le temps d'exécution de notre programme, nous l'avons réparti en utilisant des threads. 
+Afin de réduire le temps d'exécution de notre programme, nous l'avons réparti sur les différents coeurs du pc en utilisant des threads. 
 
 13.  
 Techniques implémentées de nos jours pour se prémunir des attaques par Rainbow Table : 
