@@ -3,9 +3,10 @@
 #include <string.h>
 #include "reduce.h"
 
-#define HT_SIZE N*10
 #define NC 4 // number of characters to hash
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
+
+const unsigned long long HT_SIZE = N*10; // the size of the hashtable that will contain all passxL values
 
 // global variable used to insert only unique passx0 values between the different files
 unsigned long long passx0_counter = 0;
@@ -88,7 +89,7 @@ void create(FILE * in_file, FILE * out_file) {
     char * pass0;
     char * passL;
 
-    ht_cell_t *hash_table[HT_SIZE] = {NULL};
+    ht_cell_t **hash_table = (ht_cell_t **) malloc(sizeof(ht_cell_t *) * HT_SIZE);
 
     // adding the N tuples to the file
     int i = 0;

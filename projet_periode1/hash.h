@@ -8,7 +8,7 @@
 
 #define M 6 // taille mot de passe
 #define L 1000 // longueur chaine
-#define N 100000 // nb chaines par table
+#define N 110000 // nb chaines par table
 #define R 13 // nb tables
 
 #define HASHSIZE 8
