@@ -93,15 +93,45 @@ Dans l'idéal, on cherche à avoir un coeff nbDeValeursAStocker/TailleDeLaTable 
 Donc pour 10 000 valeurs à stocker, une table de 14 286  cases serait satisfaisante. Dans ce cas on serait en O(n).  
 
 11.  
-[SCREEN DES RESULTATS]  
 
-12.  
+Pour le programme rainbow_create, nos valeurs passx0 ne sont pas générées de manière aléatoire, mais utilisent un compteur incrémental, de manière à avoir une unicité des passx0 entre les fichiers. Nous nous sommes dit que cela "occupait" autant d'espace dans l'ensemble des pass existants que des valeurs aléatoires, d'autant plus que la fonction de hashage est censée renvoyer des valeurs très différentes pour des valeurs d'entrées similaires.
 
-Environ 86% de hash ont donné un antécédent.  
-Nous avons utilisé une unique hashtable pour stocker les hash à attaquer, et avons géré les collisions avec des listes chainées.  
-Afin de réduire le temps d'exécution de notre programme, nous l'avons réparti sur les différents coeurs du pc en utilisant des threads. 
+En plus de la commande unique "make" permettant de compiler tous les programmes en une fois, nous avons fourni les commandes:
+- "make test_create": exécute le programme rainbow_create, qui génère les différents fichiers des rainbow tables.
+- "make test_hash_many": exécute le programme hash_many, qui calcule les hashs des mots de passe contenu dans "hash_many_files/hash_many_input.txt" et les écrits dans le fichier "hash_many_files/hash_many_output.txt".
+- "make test_attack": exécute le programme rainbow_attack, qui attaque le fichier crackme2023_6.txt. Attention, vérifier avant que la valeur de la constante M du fichier hash.h vaut bien 6.  Les fichiers pris par défaut correspondent à ceux générés par défaut par test_create.
+- "make test_attack_hash_many": exécute le programme rainbow_attack, qui attaque le fichier généré par le programme hash_many. 
+- "make clean": qui supprime les exécutables produits par le "make". A exécuter après tout changement des valeurs dans les fichiers ".h"
 
-13.  
+Ces commandes sont non exaustives, et nous ont uniquement aidé lors du développement. Il est toujours possible d'utiliser les commandes avec leur spécification telle que donnée dans le sujet de TP.
+
+
+
+12.     
+
+Avec les valeurs M=6, R=10, N=100000, et L=1000, nous avons réussi à craquer 86% des hashs (les mots de passe retrouvés sont des mots cohérents, ce qui nous indique que nous avons bien réussi à craquer les hashs). Ce score a été obtenu après une génération des tables durant 6 minutes environ, puis 8 minutes de craquage.
+
+Après avoir un peu expérimenté avec les résultats, nous avons remarqué de meilleurs résultats en augmentant le nombre de lignes N et de fichiers R. Nous avons essayé 
+de diminuer la taille L des chaînes, mais cela n'a donné que moins de résultats.
+
+Notre meilleur score est de 91,23%, avec M=6, R=13, N=110000 et L=1000. Nous n'avons pas testé avec de plus grandes valeurs de R et N, car nous n'avons pas eu le temps. Le plus long est actuellement de générer les rainbow tables (environ 22 minutes), car nous n'avons pas parallélisé le processus de création. Cependant, le processus de recherche a été parallélisé à l'aide de threads, et tourne en environ 10 minutes sur les PC de l'ensimag (salle e102, avec 4 threads).
+
+Nous avons essayé le programme sur le fichier crackme2023_7.txt, avec les valeurs M=7, R=10, N=100000, et L=1000, ce qui a pris un temps presque double, pour 11,68% de mots de passe trouvés.
+
+Les scores obtenus nous semblent difficle à améliorer de manière significative, sauf en augmentant énormément le nombre de fichiers et de lignes, ce qui engendre des temps de calcul très longs.
+
+Un axe d'amélioration est notre fonction de hash pour "ranger" les valeurs de pass0 dans la table de hashage générale (lors de l'attaque), qui hash tous les caractères de la pass0 (ce qui est à éviter, comme étudié en TP, mais qui fonctionnait très correctement pour des mots de passe à 6 charactères).
+
+Détails techniques :
+- Le nombre de thread n'est pas géré automatiquement selon les spécifications hardware du PC, il faut donc le régler par soi-même. Par défaut, 4 threads sur les PC de l'ensimag semble bien fonctionner, car les CPUs ont une bonne fréquence (3,5GHz). Nous avons testé sur un PC personnel disposant de 8 coeurs, avec 7 threads, cependant les CPUs n'ont qu'une fréquence de 2,7GHz, ce qui a ralenti très fortement notre programme (presque le double de temps pour chaque opération create et attack.)
+- Nous avons utilisé le programme "time" devant nos commandes pour calculer le temps d'exécution de nos programmes.
+- Pour compter le nombre de lignes non vides dans le fichier found_6.txt (ou found_7.txt), nous avons compté les lignes non vides à l'aide de la commande bash
+\$ cat foo.txt | sed '/^\s*$/d' | wc -l
+Où "foo.txt" correspond au fichier de sortie du programme rainbow_attack. Cette commande a été trouvée ici : "https://stackoverflow.com/questions/114814/count-non-blank-lines-of-code-in-bash". Nous aurions aussi pu faire cela avec un nouveau programme c, mais la commande nous suffisait.
+
+
+
+13.    
 Techniques implémentées de nos jours pour se prémunir des attaques par Rainbow Table : 
 
 - Salage :  Ajout dans chaque pass (durant le processus de hachage) d'une chaîne unique générée aléatoirement.  

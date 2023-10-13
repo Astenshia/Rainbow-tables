@@ -5,7 +5,7 @@
 
 #define NC M // number of characters to hash
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
-#define NB_THREADS 7 // number of threads created by this program
+#define NB_THREADS 4 // number of threads created by this program
 
 #define BUF_SIZE 65536 // buffer size to read lines
 

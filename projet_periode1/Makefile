@@ -16,10 +16,10 @@ test_create :
 	./rainbow_create res/test0.txt res/test1.txt res/test2.txt res/test3.txt res/test4.txt res/test5.txt res/test6.txt res/test7.txt res/test8.txt res/test9.txt res/test10.txt res/test11.txt res/test12.txt
 
 test_attack :
-	./rainbow_attack res/test0.txt res/test1.txt res/test2.txt res/test3.txt res/test4.txt res/test5.txt res/test6.txt res/test7.txt res/test8.txt res/test9.txt res/test10.txt res/test11.txt res/test12.txt crackme2023_6.txt res/resattack.txt
+	./rainbow_attack res/test0.txt res/test1.txt res/test2.txt res/test3.txt res/test4.txt res/test5.txt res/test6.txt res/test7.txt res/test8.txt res/test9.txt res/test10.txt res/test11.txt res/test12.txt crackme2023_6.txt found_6.txt
 
 test_attack_hash_many :
-	./rainbow_attack res/test0.txt res/test1.txt res/test2.txt res/test3.txt res/test4.txt res/test5.txt res/test6.txt res/test7.txt res/test8.txt res/test9.txt res/test10.txt res/test11.txt res/test12.txt hash_many_output.txt res/resattack_hash_many.txt
+	./rainbow_attack res/test0.txt res/test1.txt res/test2.txt res/test3.txt res/test4.txt res/test5.txt res/test6.txt res/test7.txt res/test8.txt res/test9.txt res/test10.txt res/test11.txt res/test12.txt hash_many_files/hash_many_output.txt res/resattack_hash_many.txt
 
 hash_many : hash_many.o
 	gcc -o hash_many hash_many.o -lm -lssl -lcrypto
