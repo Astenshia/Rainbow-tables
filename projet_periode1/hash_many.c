@@ -33,7 +33,7 @@ int main(int argc, char const *argv[])
         char * pwd = strtok(line, " \n");
         hash = target_hash_function(pwd);
 
-        fprintf(output_file, "%llu\n", hash);
+        fprintf(output_file, "%lu\n", hash);
     }
     
     if (line) free(line);
