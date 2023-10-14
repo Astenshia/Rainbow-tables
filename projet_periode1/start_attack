@@ -1,0 +1,18 @@
+#!/bin/bash
+
+R=15
+N=150000
+L=1000
+INPUT_FILE="crackme2023_6.txt"
+OUTPUT_FILE="found_6_R${R}_N${N}_L${L}.txt"
+
+make clean
+make
+
+echo "Rainbow create:"
+time ./rainbow_create res/test0.txt res/test1.txt res/test2.txt res/test3.txt res/test4.txt res/test5.txt res/test6.txt res/test7.txt res/test8.txt res/test9.txt res/test10.txt res/test11.txt res/test12.txt res/test13.txt res/test14.txt
+
+echo "Rainbow attack:"
+time ./rainbow_attack res/test0.txt res/test1.txt res/test2.txt res/test3.txt res/test4.txt res/test5.txt res/test6.txt res/test7.txt res/test8.txt res/test9.txt res/test10.txt res/test11.txt res/test12.txt res/test13.txt res/test14.txt "${INPUT_FILE}" "${OUTPUT_FILE}"
+
+echo "Number of hash found: $(cat "${OUTPUT_FILE}" | sed '/^\s*$/d' | wc -l)"
