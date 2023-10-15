@@ -16,6 +16,6 @@ echo "Rainbow attack:"
 time ./rainbow_attack res/test0.txt res/test1.txt res/test2.txt res/test3.txt res/test4.txt res/test5.txt res/test6.txt res/test7.txt res/test8.txt res/test9.txt res/test10.txt res/test11.txt res/test12.txt res/test13.txt res/test14.txt "${INPUT_FILE}" "${OUTPUT_FILE}"
 
 NB_FOUND=$(cat "${OUTPUT_FILE}" | sed '/^\s*$/d' | wc -l)
-echo "Number of hash found: ${NB_FOUD}"
+echo "Number of hash found: ${NB_FOUND}"
 
 mv "${OUTPUT_FILE}" "found_6_${NB_FOUND}_R${R}_N${N}_L${L}.txt"

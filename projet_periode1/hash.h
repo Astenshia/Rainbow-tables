@@ -7,9 +7,9 @@
 #include <byteswap.h>
 
 #define M 6 // taille mot de passe
-#define L 1000 // longueur chaine
-#define N 110000 // nb chaines par table
-#define R 13 // nb tables
+#define L 100 // longueur chaine
+#define N 5000000 // nb chaines par table
+#define R 15 // nb tables
 
 #define HASHSIZE 8
 #define SHIFT 6

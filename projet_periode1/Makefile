@@ -7,7 +7,7 @@ rainbow_attack.o : rainbow_attack.c
 	gcc -c rainbow_attack.c
 
 rainbow_create : rainbow_create.o
-	gcc -o rainbow_create rainbow_create.o -lm -lssl -lcrypto -g
+	gcc -o rainbow_create rainbow_create.o -lm -lssl -lcrypto -g -lpthread -D_REENTRANT
 
 rainbow_create.o : rainbow_create.c
 	gcc -c rainbow_create.c
