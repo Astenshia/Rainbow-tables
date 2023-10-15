@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <pthread.h>
 #include "reduce.h"
 
 #define NC 4 // number of characters to hash
@@ -149,6 +150,62 @@ void create(FILE * in_file, FILE * out_file) {
     free_hashtable(hash_table);
 }
 
+typedef struct thread_create_file {
+    const char *output_file_path;
+    int local_passx0counter;
+} cpargs;
+
+
+void * thread_create(void * args) {
+    cpargs * arg = (cpargs *) args;
+    const char *output_file_path = strdup(arg->output_file_path);
+    int local_passx0counter = arg->local_passx0counter;
+
+    FILE * out_file = fopen(output_file_path, "w");
+
+    char * pass0;
+    char * passL;
+
+    ht_cell_t **hash_table = (ht_cell_t **) malloc(sizeof(ht_cell_t *) * HT_SIZE);
+
+    // adding the N tuples to the file
+    int i = 0;
+    while (i < N) {
+        // string allocation of the size of the password's length
+        pass0 = (char*) malloc(sizeof(char) * M);
+        passL = (char*) malloc(sizeof(char) * M);
+
+        // use the reduction function to provide a unique string of M-characters for every integer
+        reduce(local_passx0counter, 0, pass0);
+        local_passx0counter++;
+
+        // first hash outside the main hash-reduction loop, to keep pass0's value in memory
+        pwhash hashed = target_hash_function(pass0);
+        // first reduction to have the same number of hash and reduction operations in the loop
+        reduce(hashed, 0, passL);
+        // hash-reduction loop, generating an L-chain
+        for(int k=1; k<L; k++) {
+            hashed = target_hash_function(passL);
+            reduce(hashed, k, passL);
+        }
+        
+        if (check_passL_in_hashtable(hash_table, passL) == 1) {
+            free(pass0);
+            free(passL);
+            continue;
+        }
+        
+        // writing pass0 passL tuple in the output file
+        fprintf(out_file, "%s %s\n", pass0, passL);
+
+        free(pass0);
+        free(passL);
+        i++;
+    }
+
+    free_hashtable(hash_table);
+}
+
 int main(int argc, char const *argv[])
 {
     if (argc < R + 1){
@@ -163,12 +220,31 @@ int main(int argc, char const *argv[])
     }
 
     // computing and writing N "pass0 passL" tuples into each file provided as parameter
-    for(int r = 0; r < R; r++) {
-        FILE * rfile = fopen(argv[r+1], "w");
-        if(rfile == NULL) {
-            printf("Error opening file %s", argv[r-1]);
+    if (R > 1) {
+        unsigned long long base_counter = 0;
+
+        pthread_t my_threads[R];
+        cpargs my_args[R];
+
+        for(int r = 0; r < R; r++) {
+            my_args[r].output_file_path = argv[r+1];
+            my_args[r].local_passx0counter = base_counter;
+
+            pthread_create(&my_threads[r], NULL, thread_create, (void *) &(my_args[r]));
+
+            base_counter += pow(26,M)/R;
+            base_counter == base_counter%(unsigned long long) pow(26,M);
         }
-        // computing and writing the tuples
+
+        for (int i = 0; i < R; i++)
+        {
+            pthread_join(my_threads[i], NULL);
+        }
+    } else {
+        FILE * rfile = fopen(argv[1], "w");
+        if(rfile == NULL) {
+            printf("Error opening file %s", argv[1]);
+        }
         create(input_file, rfile);
         fclose(rfile);
     }
