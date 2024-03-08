@@ -1,6 +1,4 @@
 # AP-project
-***REMOVED*** ***REMOVED***  
-***REMOVED*** ***REMOVED***
 
 1. "Les mots de passe sont composés de M lettres minuscules" donc on a 26^M possibilités pour l'antécédent d'un hash donné.
 on est en O(26^M). On est en complexité exponentielle.
